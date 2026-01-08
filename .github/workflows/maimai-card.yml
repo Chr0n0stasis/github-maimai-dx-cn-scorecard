@@ -1,0 +1,51 @@
+name: Update Maimai Card
+
+on:
+  schedule:
+    # 每6小时更新一次
+    - cron: '0 */6 * * *'
+  workflow_dispatch:  # 允许手动触发
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/maimai-card.yml'
+
+jobs:
+  update-card:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install requests
+      
+      - name: Generate maimai card
+        env:
+          # 在 GitHub Secrets 中设置你的用户名或QQ
+          MAIMAI_USERNAME: ${{ secrets.MAIMAI_USERNAME }}
+          MAIMAI_QQ: ${{ secrets.MAIMAI_QQ }}
+        run: |
+          if [ -n "$MAIMAI_USERNAME" ]; then
+            python generate_card.py --username "$MAIMAI_USERNAME" --output maimai-card.svg
+          elif [ -n "$MAIMAI_QQ" ]; then
+            python generate_card.py --qq "$MAIMAI_QQ" --output maimai-card.svg
+          else
+            echo "Error: Please set MAIMAI_USERNAME or MAIMAI_QQ in GitHub Secrets"
+            exit 1
+          fi
+      
+      - name: Commit and push if changed
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add maimai-card.svg
+          git diff --quiet && git diff --staged --quiet || (git commit -m "🎮 Update maimai profile card" && git push)

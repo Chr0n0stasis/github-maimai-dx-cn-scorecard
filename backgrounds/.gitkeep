@@ -1,0 +1,5 @@
+# 将背景图片放在此文件夹中
+# 支持格式: .png, .jpg, .jpeg, .gif, .webp
+#
+# 使用方法:
+# python generate_card.py -u 用户名 --background backgrounds/你的图片.png
