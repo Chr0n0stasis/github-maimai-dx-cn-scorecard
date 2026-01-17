@@ -150,8 +150,13 @@ def generate_svg_card(player_data, custom_title="", custom_bg=""):
     # 计算 B50 Rating
     dx_charts = player_data.get('charts', {}).get('dx', [])
     sd_charts = player_data.get('charts', {}).get('sd', [])
-    dx_rating = sum(chart.get('ra', 0) for chart in dx_charts)
-    sd_rating = sum(chart.get('ra', 0) for chart in sd_charts)
+    
+    # 排序并取前15个DX成绩和前35个SD成绩
+    dx_sorted = sorted(dx_charts, key=lambda x: x.get('ra', 0), reverse=True)[:15]
+    sd_sorted = sorted(sd_charts, key=lambda x: x.get('ra', 0), reverse=True)[:35]
+    
+    dx_rating = sum(chart.get('ra', 0) for chart in dx_sorted)
+    sd_rating = sum(chart.get('ra', 0) for chart in sd_sorted)
     
     rating_color = get_rating_color(rating)
     dan_name = get_dan_name(dan)
@@ -247,14 +252,14 @@ def generate_svg_card(player_data, custom_title="", custom_bg=""):
   
   <!-- DX Rating -->
   <rect x="300" y="60" width="175" height="35" fill="#1e3a5f" rx="4"/>
-  <text x="310" y="78" font-family="Arial, sans-serif" font-size="11" fill="#4da6ff">DX SCORE</text>
+  <text x="310" y="78" font-family="Arial, sans-serif" font-size="11" fill="#4da6ff">B15</text>
   <text x="465" y="85" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="#4da6ff" text-anchor="end">
     {dx_rating}
   </text>
   
   <!-- SD Rating -->
   <rect x="300" y="100" width="175" height="35" fill="#5f3a1e" rx="4"/>
-  <text x="310" y="118" font-family="Arial, sans-serif" font-size="11" fill="#ffa64d">SD SCORE</text>
+  <text x="310" y="118" font-family="Arial, sans-serif" font-size="11" fill="#ffa64d">B35</text>
   <text x="465" y="125" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="#ffa64d" text-anchor="end">
     {sd_rating}
   </text>
