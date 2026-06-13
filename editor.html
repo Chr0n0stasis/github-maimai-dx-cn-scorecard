@@ -1,0 +1,1541 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Maimai DX Scorecard Layout Editor</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Noto+Sans+SC:wght@400;700&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-dark: #0f0f13;
+      --bg-panel: rgba(22, 22, 29, 0.7);
+      --bg-card: rgba(30, 30, 42, 0.6);
+      --primary: #ff5e97;
+      --primary-glow: rgba(255, 94, 151, 0.4);
+      --accent: #00d2ff;
+      --text-main: #f0f0f5;
+      --text-muted: #9ba0b0;
+      --border-color: rgba(255, 255, 255, 0.1);
+      --glass-blur: blur(16px);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: radial-gradient(circle at 10% 20%, rgba(255, 94, 151, 0.08) 0%, transparent 40%),
+                        radial-gradient(circle at 90% 80%, rgba(0, 210, 255, 0.08) 0%, transparent 40%);
+      color: var(--text-main);
+      font-family: 'Outfit', 'Noto Sans SC', sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    header {
+      padding: 20px 40px;
+      border-bottom: 1px solid var(--border-color);
+      background: rgba(15, 15, 19, 0.8);
+      backdrop-filter: var(--glass-blur);
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    header h1 {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .main-container {
+      display: flex;
+      flex: 1;
+      height: calc(100vh - 81px);
+      overflow: hidden;
+    }
+
+    .preview-pane {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .svg-wrapper {
+      background: #000;
+      border-radius: 16px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5),
+                  0 0 0 1px var(--border-color);
+      padding: 10px;
+      position: relative;
+      width: 100%;
+      max-width: 1080px;
+      transition: transform 0.2s ease;
+    }
+
+    #live-svg {
+      width: 100%;
+      height: auto;
+      max-width: 1080px;
+      display: block;
+      transform-origin: center center;
+    }
+
+    .editor-pane {
+      width: 450px;
+      height: 100%;
+      background: var(--bg-panel);
+      backdrop-filter: var(--glass-blur);
+      border-left: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      z-index: 5;
+      overflow: hidden;
+    }
+
+    .tabs-header {
+      display: flex;
+      border-bottom: 1px solid var(--border-color);
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 15px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-family: inherit;
+    }
+
+    .tab-btn.active {
+      color: var(--primary);
+      border-bottom: 2px solid var(--primary);
+      background: rgba(255, 94, 151, 0.05);
+    }
+
+    .controls-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .control-group {
+      background: var(--bg-card);
+      border-radius: 12px;
+      padding: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .control-group-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--accent);
+      margin-bottom: 15px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .control-row {
+      margin-bottom: 12px;
+    }
+
+    .control-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .control-label-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      font-size: 0.85rem;
+    }
+
+    .control-label {
+      color: var(--text-main);
+    }
+
+    .control-value {
+      color: var(--text-muted);
+      font-family: monospace;
+    }
+
+    .input-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    input[type="range"] {
+      flex: 1;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+      -webkit-appearance: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--primary);
+      cursor: pointer;
+      box-shadow: 0 0 10px var(--primary-glow);
+      transition: transform 0.1s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    input[type="number"] {
+      width: 60px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      color: var(--text-main);
+      padding: 4px 6px;
+      font-family: monospace;
+      text-align: center;
+      font-size: 0.85rem;
+    }
+
+    .code-export-box {
+      width: 100%;
+      height: 100%;
+      background: #09090d;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      color: #71dfa9;
+      font-family: 'Courier New', Courier, monospace;
+      padding: 16px;
+      resize: none;
+      font-size: 0.85rem;
+      line-height: 1.4;
+      flex: 1;
+    }
+
+    .action-bar {
+      padding: 20px 24px;
+      border-top: 1px solid var(--border-color);
+      background: rgba(0, 0, 0, 0.2);
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      border: none;
+      transition: all 0.2s ease;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 4px 15px var(--primary-glow);
+    }
+
+    .btn-primary:hover {
+      background: #ff78a9;
+      box-shadow: 0 4px 20px rgba(255, 94, 151, 0.6);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    /* Zoom Controls */
+    .zoom-controls {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      background: var(--bg-panel);
+      backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      display: flex;
+      padding: 4px;
+      gap: 4px;
+    }
+
+    .zoom-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      color: var(--text-main);
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .zoom-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .toast {
+      position: fixed;
+      top: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-100px);
+      background: #07c160;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      box-shadow: 0 10px 30px rgba(7, 193, 96, 0.3);
+      z-index: 100;
+      font-weight: 600;
+      transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+  <div id="toast" class="toast">复制成功！可以直接粘帖到 python 脚本中。</div>
+
+  <header>
+    <div>
+      <h1>Maimai DX Scorecard Layout Editor</h1>
+      <div class="subtitle">可视化调节 SVG 卡片排版布局，完美像素级对齐</div>
+    </div>
+    <div>
+      <button class="btn btn-secondary" onclick="resetAll()">全部重置</button>
+    </div>
+  </header>
+  <div class="main-container">
+    <div class="preview-pane">
+      <div class="svg-wrapper" id="svg-wrapper">
+        <svg id="live-svg" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1080" height="452" viewBox="0 0 1080 452">
+          <defs>
+            <pattern id="trophy-rainbow" width="36" height="36" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+              <rect x="0" width="6" height="36" fill="#ff5e97" />
+              <rect x="6" width="6" height="36" fill="#ff8e53" />
+              <rect x="12" width="6" height="36" fill="#fffd75" />
+              <rect x="18" width="6" height="36" fill="#50ff8e" />
+              <rect x="24" width="6" height="36" fill="#50b3ff" />
+              <rect x="30" width="6" height="36" fill="#b350ff" />
+            </pattern>
+            <linearGradient id="trophy-gold" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#FFE57F"/>
+              <stop offset="50%" style="stop-color:#FFD54F"/>
+              <stop offset="100%" style="stop-color:#FFC107"/>
+            </linearGradient>
+            <linearGradient id="trophy-silver" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#F5F5F5"/>
+              <stop offset="100%" style="stop-color:#BDBDBD"/>
+            </linearGradient>
+            <linearGradient id="trophy-bronze" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#D7CCC8"/>
+              <stop offset="100%" style="stop-color:#8D6E63"/>
+            </linearGradient>
+            <linearGradient id="trophy-normal" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#FFFFFF"/>
+              <stop offset="100%" style="stop-color:#ECEFF1"/>
+            </linearGradient>
+            <linearGradient id="bar-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" style="stop-color:#ff7e5f"/>
+              <stop offset="50%" style="stop-color:#feb47b"/>
+              <stop offset="100%" style="stop-color:#00c6ff"/>
+            </linearGradient>
+            <linearGradient id="bg-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#1a1a2e"/>
+              <stop offset="100%" style="stop-color:#16213e"/>
+            </linearGradient>
+            <clipPath id="rounded-clip">
+              <rect width="1080" height="452" rx="15"/>
+            </clipPath>
+            <clipPath id="avatar-clip">
+              <rect id="svg-avatar-clip-rect" x="22" y="22" width="116" height="116" rx="18" />
+            </clipPath>
+          </defs>
+          
+          <!-- 黑色底框 -->
+          <rect width="1080" height="452" fill="#121214" rx="15"/>
+          
+          <!-- 游戏背景板 Frame -->
+          <image id="svg-frame" href="backgrounds/UI_CMN_Frame_01.png" x="0" y="0" width="1080" height="452" preserveAspectRatio="xMidYMin slice" clip-path="url(#rounded-clip)"/>
+          
+          <!-- 姓名框 Plate -->
+          <image id="svg-plate" href="assets/UI_CMN_DXRating_10.png" x="142" y="22" width="720" height="116" />
+          
+          <!-- 玩家昵称与自定义称号 -->
+          <rect id="svg-trophy-bg" x="154" y="34" width="100" height="18" rx="9" fill="url(#trophy-normal)" stroke="rgba(255,255,255,0.6)" stroke-width="1" />
+          <text id="svg-trophy" x="162" y="48" font-family="A-OTF ShinGo Pro, ShinGoPro, sans-serif" font-size="12" font-weight="bold" fill="#333333">みるくのともだち</text>
+          <rect id="svg-name-bg" x="143" y="58" width="243" height="38" rx="6" fill="#ffffff" />
+          <text id="svg-name" x="162" y="94" font-size="24" font-family="A-OTF ShinGo Pro, ShinGoPro, sans-serif" font-weight="bold" fill="#111111">Ｃｈｒ０ｎ０ｓ☆</text>
+          
+          <!-- 段位称号图章 -->
+          <image id="svg-dan" href="assets/UI_CMN_MatchLevel_01.png" x="480" y="62" width="78" height="36" />
+          
+          <!-- 头像 Icon (带圆角的方形) -->
+          <image id="svg-avatar" href="assets/UI_CMN_Class_S_00.png" x="22" y="22" width="116" height="116" clip-path="url(#avatar-clip)" />
+          
+          <!-- 评分面板 RATING -->
+          <image id="svg-rating-base" href="assets/UI_CMN_DXRating_10.png" x="158" y="12" width="265" height="52" />
+          
+          <!-- Rating 数字 -->
+          <g id="svg-rating-digits"></g>
+          
+          <!-- Rating 星级绶带 -->
+          <image id="svg-rating-star" href="assets/UI_CMN_DXRating_Star_01.png" x="418" y="12" width="25" height="42" />
+          
+          <!-- Class 徽章 (如 B5 绿牌) -->
+          <image id="svg-class-badge" href="assets/UI_CMN_Class_S_05.png" x="455" y="15" width="75" height="45" />
+          
+          <!-- B35 + B15 进度条 -->
+          <rect id="svg-prog-bg" x="142" y="114" width="360" height="32" rx="16" fill="#1e1e24" stroke="#4a4a5a" stroke-width="1.5" />
+          <rect id="svg-prog-fill" x="144" y="116" width="356" height="28" rx="14" fill="url(#bar-gradient)" />
+          <text id="svg-prog-text" x="322" y="135" font-family="Arial, sans-serif" font-size="15" font-weight="bold" fill="#000000" text-anchor="middle">旧曲: 9609 + 新曲: 4339</text>
+          
+          <!-- 更新时间戳 -->
+          <text id="svg-timestamp" x="1060" y="435" font-family="Arial, sans-serif" font-size="11" fill="#ffffff" opacity="0.8" text-anchor="end">更新于 2026-06-14 02:29 · Lxns API</text>
+        </svg>
+      </div>
+
+      <div class="zoom-controls">
+        <button class="zoom-btn" onclick="zoom(0.1)">＋</button>
+        <button class="zoom-btn" onclick="zoom(-0.1)">－</button>
+        <button class="zoom-btn" onclick="resetZoom()">1:1</button>
+      </div>
+    </div>
+
+    <div class="editor-pane">
+      <div class="tabs-header">
+        <button class="tab-btn active" onclick="switchTab('params')">布局调节</button>
+        <button class="tab-btn" onclick="switchTab('code')">导出代码</button>
+      </div>
+
+      <div class="controls-container" id="tab-params">
+        <!-- SVG Import Box -->
+        <div class="control-group" style="background: rgba(255, 94, 151, 0.1); border-color: var(--primary);">
+          <div class="control-group-title" style="color: var(--primary);">📂 导入 maimai-card.svg</div>
+          <div class="subtitle" style="margin-bottom: 12px; color: var(--text-main);">选择生成的卡片以自动载入你的头像、框底图和等级徽章！</div>
+          <input type="file" id="svg-file-input" accept=".svg" style="display: none;" onchange="handleSvgSelect(this.files[0])">
+          <button class="btn btn-primary" style="width: 100%;" onclick="document.getElementById('svg-file-input').click()">选择本地 maimai-card.svg</button>
+        </div>
+
+        <!-- Name Plate Group -->
+        <div class="control-group">
+          <div class="control-group-title">姓名底板 (Plate)</div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">X 坐标</span>
+              <span class="control-value" id="val-plate-x">142</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-plate-x" min="0" max="1000" value="142" oninput="updateVal('plate-x', this.value)">
+              <input type="number" id="num-plate-x" value="142" oninput="updateVal('plate-x', this.value)">
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">Y 坐标</span>
+              <span class="control-value" id="val-plate-y">22</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-plate-y" min="-100" max="200" value="22" oninput="updateVal('plate-y', this.value)">
+              <input type="number" id="num-plate-y" value="22" oninput="updateVal('plate-y', this.value)">
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">宽度</span>
+              <span class="control-value" id="val-plate-w">720</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-plate-w" min="100" max="1080" value="720" oninput="updateVal('plate-w', this.value)">
+              <input type="number" id="num-plate-w" value="720" oninput="updateVal('plate-w', this.value)">
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">高度</span>
+              <span class="control-value" id="val-plate-h">116</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-plate-h" min="20" max="200" value="116" oninput="updateVal('plate-h', this.value)">
+              <input type="number" id="num-plate-h" value="116" oninput="updateVal('plate-h', this.value)">
+            </div>
+          </div>
+        </div>
+
+        <!-- Avatar Group -->
+        <div class="control-group">
+          <div class="control-group-title">玩家头像 (Avatar)</div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">X 坐标</span>
+              <span class="control-value" id="val-avatar-x">22</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-avatar-x" min="0" max="500" value="22" oninput="updateVal('avatar-x', this.value)">
+              <input type="number" id="num-avatar-x" value="22" oninput="updateVal('avatar-x', this.value)">
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">Y 坐标</span>
+              <span class="control-value" id="val-avatar-y">22</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-avatar-y" min="-50" max="150" value="22" oninput="updateVal('avatar-y', this.value)">
+              <input type="number" id="num-avatar-y" value="22" oninput="updateVal('avatar-y', this.value)">
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">尺寸</span>
+              <span class="control-value" id="val-avatar-size">116</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-avatar-size" min="20" max="200" value="116" oninput="updateVal('avatar-size', this.value)">
+              <input type="number" id="num-avatar-size" value="116" oninput="updateVal('avatar-size', this.value)">
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">圆角大小</span>
+              <span class="control-value" id="val-avatar-rx">18</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-avatar-rx" min="0" max="100" value="18" oninput="updateVal('avatar-rx', this.value)">
+              <input type="number" id="num-avatar-rx" value="18" oninput="updateVal('avatar-rx', this.value)">
+            </div>
+          </div>
+        </div>
+
+        <!-- Trophy Name Group -->
+        <div class="control-group">
+          <div class="control-group-title">玩家称号 (Trophy)</div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">称号文本</span>
+            </div>
+            <div class="input-row">
+              <input type="text" id="input-trophy-text" style="width: 100%; padding: 6px; border: 1px solid #444; background: #222; color: #fff; border-radius: 4px;" value="みるくのともだち" oninput="updateTrophyText(this.value)">
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">背景颜色</span>
+            </div>
+            <div class="input-row">
+              <select id="select-trophy-color" style="width: 100%; padding: 6px; border: 1px solid #444; background: #222; color: #fff; border-radius: 4px;" onchange="updateTrophyColor(this.value)">
+                <option value="url(#trophy-normal)">普通/白色</option>
+                <option value="url(#trophy-gold)" selected>金色</option>
+                <option value="url(#trophy-silver)">银色</option>
+                <option value="url(#trophy-bronze)">铜色</option>
+                <option value="url(#trophy-rainbow)">彩虹色</option>
+              </select>
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">X 坐标</span>
+              <span class="control-value" id="val-trophy-x">162</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-trophy-x" min="0" max="800" value="162" oninput="updateVal('trophy-x', this.value)">
+              <input type="number" id="num-trophy-x" value="162" oninput="updateVal('trophy-x', this.value)">
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">Y 坐标</span>
+              <span class="control-value" id="val-trophy-y">48</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-trophy-y" min="0" max="160" value="48" oninput="updateVal('trophy-y', this.value)">
+              <input type="number" id="num-trophy-y" value="48" oninput="updateVal('trophy-y', this.value)">
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">字体大小</span>
+              <span class="control-value" id="val-trophy-size">12</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-trophy-size" min="8" max="24" value="12" oninput="updateVal('trophy-size', this.value)">
+              <input type="number" id="num-trophy-size" value="12" oninput="updateVal('trophy-size', this.value)">
+            </div>
+          </div>
+        </div>
+
+        <!-- Player Name Group -->
+        <div class="control-group">
+          <div class="control-group-title">玩家昵称 (Name)</div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">昵称文本</span>
+            </div>
+            <div class="input-row">
+              <input type="text" id="input-name-text" style="width: 100%; padding: 6px; border: 1px solid #444; background: #222; color: #fff; border-radius: 4px;" value="みるく" oninput="updateNameText(this.value)">
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">X 坐标</span>
+              <span class="control-value" id="val-name-x">162</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-name-x" min="0" max="800" value="162" oninput="updateVal('name-x', this.value)">
+              <input type="number" id="num-name-x" value="162" oninput="updateVal('name-x', this.value)">
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">Y 坐标</span>
+              <span class="control-value" id="val-name-y">94</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-name-y" min="20" max="160" value="94" oninput="updateVal('name-y', this.value)">
+              <input type="number" id="num-name-y" value="94" oninput="updateVal('name-y', this.value)">
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">Y 坐标 (无称号时)</span>
+              <span class="control-value" id="val-name-y-notrophy">86</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-name-y-notrophy" min="20" max="160" value="86" oninput="updateVal('name-y-notrophy', this.value)">
+              <input type="number" id="num-name-y-notrophy" value="86" oninput="updateVal('name-y-notrophy', this.value)">
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">字体大小</span>
+              <span class="control-value" id="val-name-size">24</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-name-size" min="12" max="40" value="24" oninput="updateVal('name-size', this.value)">
+              <input type="number" id="num-name-size" value="24" oninput="updateVal('name-size', this.value)">
+          </div>
+        </div>
+
+        <!-- Player Name BG Group -->
+        <div class="control-group">
+          <div class="control-group-title">昵称背景板 (Name BG)</div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">X 坐标</span>
+              <span class="control-value" id="val-name-bg-x">143</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-name-bg-x" min="0" max="800" value="143" oninput="updateVal('name-bg-x', this.value)">
+              <input type="number" id="num-name-bg-x" value="143" oninput="updateVal('name-bg-x', this.value)">
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">Y 坐标</span>
+              <span class="control-value" id="val-name-bg-y">58</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-name-bg-y" min="0" max="160" value="58" oninput="updateVal('name-bg-y', this.value)">
+              <input type="number" id="num-name-bg-y" value="58" oninput="updateVal('name-bg-y', this.value)">
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">宽度</span>
+              <span class="control-value" id="val-name-bg-w">243</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-name-bg-w" min="50" max="500" value="243" oninput="updateVal('name-bg-w', this.value)">
+              <input type="number" id="num-name-bg-w" value="243" oninput="updateVal('name-bg-w', this.value)">
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">高度</span>
+              <span class="control-value" id="val-name-bg-h">38</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-name-bg-h" min="10" max="100" value="38" oninput="updateVal('name-bg-h', this.value)">
+              <input type="number" id="num-name-bg-h" value="38" oninput="updateVal('name-bg-h', this.value)">
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">圆角大小</span>
+              <span class="control-value" id="val-name-bg-rx">6</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-name-bg-rx" min="0" max="50" value="6" oninput="updateVal('name-bg-rx', this.value)">
+              <input type="number" id="num-name-bg-rx" value="6" oninput="updateVal('name-bg-rx', this.value)">
+            </div>
+          </div>
+        </div>
+
+        <!-- Rating Box Group -->
+        <div class="control-group">
+          <div class="control-group-title">评分框 (Rating Base)</div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">X 坐标</span>
+              <span class="control-value" id="val-rating-x">158</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-rating-x" min="100" max="800" value="158" oninput="updateVal('rating-x', this.value)">
+              <input type="number" id="num-rating-x" value="158" oninput="updateVal('rating-x', this.value)">
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">Y 坐标</span>
+              <span class="control-value" id="val-rating-y">12</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-rating-y" min="-20" max="100" value="12" oninput="updateVal('rating-y', this.value)">
+              <input type="number" id="num-rating-y" value="12" oninput="updateVal('rating-y', this.value)">
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">宽度</span>
+              <span class="control-value" id="val-rating-w">265</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-rating-w" min="100" max="500" value="265" oninput="updateVal('rating-w', this.value)">
+              <input type="number" id="num-rating-w" value="265" oninput="updateVal('rating-w', this.value)">
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">高度</span>
+              <span class="control-value" id="val-rating-h">52</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-rating-h" min="10" max="120" value="52" oninput="updateVal('rating-h', this.value)">
+              <input type="number" id="num-rating-h" value="52" oninput="updateVal('rating-h', this.value)">
+            </div>
+          </div>
+        </div>
+
+        <!-- Rating Digits Group -->
+        <div class="control-group">
+          <div class="control-group-title">Rating 数字 (Digits)</div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">起始 X 坐标</span>
+              <span class="control-value" id="val-digits-x">284</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-digits-x" min="100" max="800" value="284" oninput="updateVal('digits-x', this.value)">
+              <input type="number" id="num-digits-x" value="284" oninput="updateVal('digits-x', this.value)">
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">Y 坐标</span>
+              <span class="control-value" id="val-digits-y">23</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-digits-y" min="-10" max="100" value="23" oninput="updateVal('digits-y', this.value)">
+              <input type="number" id="num-digits-y" value="23" oninput="updateVal('digits-y', this.value)">
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">数字间距</span>
+              <span class="control-value" id="val-digits-spacing">21.6</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-digits-spacing" min="10" max="50" step="0.2" value="21.6" oninput="updateVal('digits-spacing', this.value)">
+              <input type="number" id="num-digits-spacing" step="0.1" value="21.6" oninput="updateVal('digits-spacing', this.value)">
+            </div>
+          </div>
+        </div>
+
+        <!-- Star ribbon and Class badge -->
+        <div class="control-group">
+          <div class="control-group-title">星级绶带与 Class 徽章</div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">星级 X 坐标</span>
+              <span class="control-value" id="val-star-x">418</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-star-x" min="100" max="800" value="418" oninput="updateVal('star-x', this.value)">
+              <input type="number" id="num-star-x" value="418" oninput="updateVal('star-x', this.value)">
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">星级 Y 坐标</span>
+              <span class="control-value" id="val-star-y">12</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-star-y" min="-10" max="100" value="12" oninput="updateVal('star-y', this.value)">
+              <input type="number" id="num-star-y" value="12" oninput="updateVal('star-y', this.value)">
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">Class X 坐标</span>
+              <span class="control-value" id="val-class-x">455</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-class-x" min="100" max="800" value="455" oninput="updateVal('class-x', this.value)">
+              <input type="number" id="num-class-x" value="455" oninput="updateVal('class-x', this.value)">
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">Class Y 坐标</span>
+              <span class="control-value" id="val-class-y">15</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-class-y" min="-10" max="100" value="15" oninput="updateVal('class-y', this.value)">
+              <input type="number" id="num-class-y" value="15" oninput="updateVal('class-y', this.value)">
+            </div>
+          </div>
+        </div>
+
+        <!-- Dan Stamp Group -->
+        <div class="control-group">
+          <div class="control-group-title">段位徽章 (Dan Stamp)</div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">X 坐标</span>
+              <span class="control-value" id="val-dan-x">480</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-dan-x" min="100" max="900" value="480" oninput="updateVal('dan-x', this.value)">
+              <input type="number" id="num-dan-x" value="480" oninput="updateVal('dan-x', this.value)">
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">Y 坐标</span>
+              <span class="control-value" id="val-dan-y">62</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-dan-y" min="0" max="150" value="62" oninput="updateVal('dan-y', this.value)">
+              <input type="number" id="num-dan-y" value="62" oninput="updateVal('dan-y', this.value)">
+            </div>
+          </div>
+        </div>
+
+        <!-- Progress Bar Group -->
+        <div class="control-group">
+          <div class="control-group-title">B35/B15 进度条 (Progress Bar)</div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">X 坐标</span>
+              <span class="control-value" id="val-prog-x">142</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-prog-x" min="0" max="800" value="142" oninput="updateVal('prog-x', this.value)">
+              <input type="number" id="num-prog-x" value="142" oninput="updateVal('prog-x', this.value)">
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">Y 坐标</span>
+              <span class="control-value" id="val-prog-y">114</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-prog-y" min="0" max="150" value="114" oninput="updateVal('prog-y', this.value)">
+              <input type="number" id="num-prog-y" value="114" oninput="updateVal('prog-y', this.value)">
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">宽度</span>
+              <span class="control-value" id="val-prog-w">360</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-prog-w" min="100" max="800" value="360" oninput="updateVal('prog-w', this.value)">
+              <input type="number" id="num-prog-w" value="360" oninput="updateVal('prog-w', this.value)">
+            </div>
+          </div>
+          <div class="control-row">
+            <div class="control-label-row">
+              <span class="control-label">文本 Y 偏移 (相对于 Y)</span>
+              <span class="control-value" id="val-prog-text-offset">21</span>
+            </div>
+            <div class="input-row">
+              <input type="range" id="slider-prog-text-offset" min="5" max="30" value="21" oninput="updateVal('prog-text-offset', this.value)">
+              <input type="number" id="num-prog-text-offset" value="21" oninput="updateVal('prog-text-offset', this.value)">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Code tab content -->
+      <div class="controls-container" id="tab-code" style="display: none; height: 100%;">
+        <textarea class="code-export-box" id="code-export-box" readonly onclick="this.select()"></textarea>
+      </div>
+
+      <div class="action-bar">
+        <button class="btn btn-secondary" style="flex: 1;" onclick="copyCode()">复制参数代码</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // State of all layout variables (matching exact defaults)
+    const state = {
+      'plate-x': 142,
+      'plate-y': 22,
+      'plate-w': 720,
+      'plate-h': 116,
+      
+      'avatar-x': 22,
+      'avatar-y': 22,
+      'avatar-size': 116,
+      'avatar-rx': 18,
+      
+      'trophy-x': 162,
+      'trophy-y': 48,
+      'trophy-size': 12,
+      
+      'name-x': 162,
+      'name-y': 94,
+      'name-y-notrophy': 86,
+      'name-size': 24,
+      
+      'rating-x': 158,
+      'rating-y': 12,
+      'rating-w': 265,
+      'rating-h': 52,
+      
+      'digits-x': 284,
+      'digits-y': 23,
+      'digits-spacing': 21.6,
+      
+      'star-x': 418,
+      'star-y': 12,
+      
+      'class-x': 455,
+      'class-y': 15,
+      
+      'dan-x': 480,
+      'dan-y': 62,
+      
+      'prog-x': 142,
+      'prog-y': 114,
+      'prog-w': 360,
+      'prog-text-offset': 21,
+      'name-bg-x': 143,
+      'name-bg-y': 58,
+      'name-bg-w': 243,
+      'name-bg-h': 38,
+      'name-bg-rx': 6
+    };
+
+    const defaults = { ...state };
+    let currentZoom = 1.0;
+    
+    // Rating value and default spritesheet
+    let ratingValue = 14004;
+    window.num_spritesheet_base64 = 'assets/UI_NUM_Drating.png';
+
+    function init() {
+      // Proactively try to load maimai-card.svg locally
+      fetch('maimai-card.svg')
+        .then(response => {
+          if (!response.ok) throw new Error("File not found");
+          return response.text();
+        })
+        .then(text => {
+          loadSvgContent(text);
+          console.log("Successfully auto-loaded maimai-card.svg");
+        })
+        .catch(err => {
+          console.log("Note: Auto-loading local maimai-card.svg was blocked by browser CORS policy or file doesn't exist yet. That's fine! Please select it manually using the upload button.", err);
+        });
+
+      renderDigits();
+      updateSvgElements();
+      updateCodeExport();
+    }
+
+    function switchTab(tab) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+      
+      if (tab === 'params') {
+        document.getElementById('tab-params').style.display = 'flex';
+        document.getElementById('tab-code').style.display = 'none';
+      } else {
+        document.getElementById('tab-params').style.display = 'none';
+        document.getElementById('tab-code').style.display = 'flex';
+        updateCodeExport();
+      }
+    }
+
+    function zoom(amount) {
+      currentZoom = Math.max(0.5, Math.min(2.0, currentZoom + amount));
+      document.getElementById('live-svg').style.transform = `scale(${currentZoom})`;
+    }
+
+    function resetZoom() {
+      currentZoom = 1.0;
+      document.getElementById('live-svg').style.transform = `scale(1)`;
+    }
+
+    function updateVal(param, val) {
+      val = parseFloat(val);
+      if (isNaN(val)) return;
+      
+      state[param] = val;
+      
+      // Update UI slider and number inputs
+      const slider = document.getElementById(`slider-${param}`);
+      const num = document.getElementById(`num-${param}`);
+      const display = document.getElementById(`val-${param}`);
+      
+      if (slider) slider.value = val;
+      if (num) num.value = val;
+      if (display) display.textContent = val;
+      
+      updateSvgElements();
+      updateCodeExport();
+    }
+
+    function updateValSilently(param, val) {
+      val = parseFloat(val);
+      if (isNaN(val)) return;
+      state[param] = val;
+      const slider = document.getElementById(`slider-${param}`);
+      const num = document.getElementById(`num-${param}`);
+      const display = document.getElementById(`val-${param}`);
+      if (slider) slider.value = val;
+      if (num) num.value = val;
+      if (display) display.textContent = val;
+    }
+
+    function updateSvgElements() {
+      // Name Plate
+      const plate = document.getElementById('svg-plate');
+      plate.setAttribute('x', state['plate-x']);
+      plate.setAttribute('y', state['plate-y']);
+      plate.setAttribute('width', state['plate-w']);
+      plate.setAttribute('height', state['plate-h']);
+      
+      // Avatar
+      const avatar = document.getElementById('svg-avatar');
+      avatar.setAttribute('x', state['avatar-x']);
+      avatar.setAttribute('y', state['avatar-y']);
+      avatar.setAttribute('width', state['avatar-size']);
+      avatar.setAttribute('height', state['avatar-size']);
+      
+      const avatarClip = document.getElementById('svg-avatar-clip-rect');
+      avatarClip.setAttribute('x', state['avatar-x']);
+      avatarClip.setAttribute('y', state['avatar-y']);
+      avatarClip.setAttribute('width', state['avatar-size']);
+      avatarClip.setAttribute('height', state['avatar-size']);
+      avatarClip.setAttribute('rx', state['avatar-rx']);
+      
+      // Trophy Name
+      const trophy = document.getElementById('svg-trophy');
+      const trophyBg = document.getElementById('svg-trophy-bg');
+      trophy.setAttribute('x', state['trophy-x']);
+      trophy.setAttribute('y', state['trophy-y']);
+      trophy.setAttribute('font-size', state['trophy-size']);
+      
+      if (trophyBg) {
+        if (trophy.textContent) {
+          trophyBg.setAttribute('style', 'display: block;');
+          const trophySize = state['trophy-size'];
+          const trophyRectX = state['trophy-x'] - (trophySize * 0.666);
+          const trophyRectY = state['trophy-y'] - (trophySize * 1.166);
+          trophyBg.setAttribute('x', trophyRectX);
+          trophyBg.setAttribute('y', trophyRectY);
+          
+          let w_sum = 0;
+          for (let i = 0; i < trophy.textContent.length; i++) {
+            const code = trophy.textContent.charCodeAt(i);
+            if (code < 128) w_sum += trophySize * 0.55;
+            else w_sum += trophySize * 1.0;
+          }
+          const trophyWidth = w_sum + (trophySize * 1.33);
+          const trophyHeight = trophySize * 1.5;
+          const trophyRx = trophyHeight / 2;
+          
+          trophyBg.setAttribute('width', trophyWidth);
+          trophyBg.setAttribute('height', trophyHeight);
+          trophyBg.setAttribute('rx', trophyRx);
+        } else {
+          trophyBg.setAttribute('style', 'display: none;');
+        }
+      }
+      
+      // Player Name
+      const name = document.getElementById('svg-name');
+      const nameBg = document.getElementById('svg-name-bg');
+      name.setAttribute('x', state['name-x']);
+      name.setAttribute('y', trophy.textContent ? state['name-y'] : state['name-y-notrophy']);
+      name.setAttribute('font-size', state['name-size']);
+      if (nameBg) {
+        nameBg.setAttribute('x', state['name-bg-x']);
+        nameBg.setAttribute('y', state['name-bg-y']);
+        nameBg.setAttribute('width', state['name-bg-w']);
+        nameBg.setAttribute('height', state['name-bg-h']);
+        nameBg.setAttribute('rx', state['name-bg-rx']);
+      }
+      
+      // Rating Base
+      const rBase = document.getElementById('svg-rating-base');
+      rBase.setAttribute('x', state['rating-x']);
+      rBase.setAttribute('y', state['rating-y']);
+      rBase.setAttribute('width', state['rating-w']);
+      rBase.setAttribute('height', state['rating-h']);
+      
+      // Digits
+      renderDigits();
+      
+      // Rating Star
+      const rStar = document.getElementById('svg-rating-star');
+      rStar.setAttribute('x', state['star-x']);
+      rStar.setAttribute('y', state['star-y']);
+      
+      // Class Badge
+      const cBadge = document.getElementById('svg-class-badge');
+      cBadge.setAttribute('x', state['class-x']);
+      cBadge.setAttribute('y', state['class-y']);
+      
+      // Dan Stamp
+      const dan = document.getElementById('svg-dan');
+      dan.setAttribute('x', state['dan-x']);
+      dan.setAttribute('y', state['dan-y']);
+      
+      // Progress Bar Background
+      const pBg = document.getElementById('svg-prog-bg');
+      pBg.setAttribute('x', state['prog-x']);
+      pBg.setAttribute('y', state['prog-y']);
+      pBg.setAttribute('width', state['prog-w']);
+      
+      // Progress Bar Fill
+      const pFill = document.getElementById('svg-prog-fill');
+      pFill.setAttribute('x', state['prog-x'] + 2);
+      pFill.setAttribute('y', state['prog-y'] + 2);
+      pFill.setAttribute('width', state['prog-w'] - 4);
+      
+      // Progress Bar Text
+      const pText = document.getElementById('svg-prog-text');
+      pText.setAttribute('x', state['prog-x'] + state['prog-w'] / 2);
+      pText.setAttribute('y', state['prog-y'] + state['prog-text-offset']);
+    }
+
+    function renderDigits() {
+      const group = document.getElementById('svg-rating-digits');
+      group.innerHTML = '';
+      
+      const ratingStr = String(ratingValue).padStart(5, '0');
+      const startX = state['digits-x'];
+      const y = state['digits-y'];
+      const spacing = state['digits-spacing'];
+      
+      for (let i = 0; i < ratingStr.length; i++) {
+        const digit = ratingStr[i];
+        const val = parseInt(digit);
+        const col = val % 4;
+        const row = Math.floor(val / 4);
+        const sx = col * 30;
+        const sy = row * 34;
+        const dx = startX + i * spacing;
+        
+        const subSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        subSvg.setAttribute('x', dx);
+        subSvg.setAttribute('y', y);
+        subSvg.setAttribute('width', 15);
+        subSvg.setAttribute('height', 17);
+        subSvg.setAttribute('viewBox', `${sx} ${sy} 30 34`);
+        
+        const img = document.createElementNS("http://www.w3.org/2000/svg", "image");
+        img.setAttribute('href', window.num_spritesheet_base64);
+        img.setAttribute('x', 0);
+        img.setAttribute('y', 0);
+        img.setAttribute('width', 120);
+        img.setAttribute('height', 136);
+        
+        subSvg.appendChild(img);
+        group.appendChild(subSvg);
+      }
+    }
+
+    function handleSvgSelect(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        loadSvgContent(e.target.result);
+      };
+      reader.readAsText(file);
+    }
+
+    function loadSvgContent(svgText) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(svgText, "image/svg+xml");
+      
+      const images = doc.querySelectorAll('image');
+      const texts = doc.querySelectorAll('text');
+      
+      // 1. Frame
+      const frameImg = Array.from(images).find(img => img.getAttribute('width') === '1080' && img.getAttribute('height') === '452');
+      if (frameImg) {
+        document.getElementById('svg-frame').setAttribute('href', frameImg.getAttribute('href'));
+      }
+      
+      // 2. Plate
+      const plateImg = Array.from(images).find(img => img.getAttribute('width') === '720' && img.getAttribute('height') === '116');
+      if (plateImg) {
+        document.getElementById('svg-plate').setAttribute('href', plateImg.getAttribute('href'));
+      }
+      
+      // 3. Avatar
+      const avatarImg = Array.from(images).find(img => img.getAttribute('clip-path') === 'url(#avatar-clip)');
+      if (avatarImg) {
+        document.getElementById('svg-avatar').setAttribute('href', avatarImg.getAttribute('href'));
+      }
+      
+      // 4. Rating Base
+      const ratingBaseImg = Array.from(images).find(img => img.getAttribute('width') === '265' && img.getAttribute('height') === '52');
+      if (ratingBaseImg) {
+        document.getElementById('svg-rating-base').setAttribute('href', ratingBaseImg.getAttribute('href'));
+      }
+      
+      // 5. Star Ribbon
+      const ratingStarImg = Array.from(images).find(img => img.getAttribute('width') === '25' && img.getAttribute('height') === '42');
+      if (ratingStarImg) {
+        document.getElementById('svg-rating-star').setAttribute('href', ratingStarImg.getAttribute('href'));
+      }
+      
+      // 6. Class Badge
+      const classBadgeImg = Array.from(images).find(img => img.getAttribute('width') === '75' && img.getAttribute('height') === '45');
+      if (classBadgeImg) {
+        document.getElementById('svg-class-badge').setAttribute('href', classBadgeImg.getAttribute('href'));
+      }
+      
+      // 7. Dan Stamp
+      const danImg = Array.from(images).find(img => img.getAttribute('width') === '78' && img.getAttribute('height') === '36');
+      if (danImg) {
+        document.getElementById('svg-dan').setAttribute('href', danImg.getAttribute('href'));
+      }
+      
+      // 8. Rating Spritesheet
+      const subSvgs = doc.querySelectorAll('svg svg');
+      if (subSvgs.length > 0) {
+        const digitImg = subSvgs[0].querySelector('image');
+        if (digitImg) {
+          window.num_spritesheet_base64 = digitImg.getAttribute('href');
+        }
+      }
+      
+      // 9. Text strings
+      const shingoTexts = Array.from(texts).filter(t => t.getAttribute('font-family') && t.getAttribute('font-family').includes('ShinGo'));
+      if (shingoTexts.length === 2) {
+        document.getElementById('svg-trophy').textContent = shingoTexts[0].textContent;
+        document.getElementById('svg-name').textContent = shingoTexts[1].textContent;
+        document.getElementById('input-trophy-text').value = shingoTexts[0].textContent;
+        document.getElementById('input-name-text').value = shingoTexts[1].textContent;
+      } else if (shingoTexts.length === 1) {
+        document.getElementById('svg-trophy').textContent = "";
+        document.getElementById('svg-name').textContent = shingoTexts[0].textContent;
+        document.getElementById('input-trophy-text').value = "";
+        document.getElementById('input-name-text').value = shingoTexts[0].textContent;
+      }
+      
+      // Extract trophy background pill color/gradient
+      const trophyRect = Array.from(doc.querySelectorAll('rect')).find(r => r.getAttribute('fill') && r.getAttribute('fill').includes('trophy'));
+      const trophyBg = document.getElementById('svg-trophy-bg');
+      if (trophyRect && trophyBg) {
+        const fillVal = trophyRect.getAttribute('fill');
+        trophyBg.setAttribute('fill', fillVal);
+        const trophySelect = document.getElementById('select-trophy-color');
+        if (trophySelect) {
+          trophySelect.value = fillVal;
+        }
+      }
+      
+      const progText = Array.from(texts).find(t => t.textContent.includes('旧曲') || t.textContent.includes('Rating'));
+      if (progText) {
+        document.getElementById('svg-prog-text').textContent = progText.textContent;
+        // Parse actual rating value if B35/B15 is not there
+        const rMatch = progText.textContent.match(/Rating:\s*(\d+)/);
+        if (rMatch) ratingValue = parseInt(rMatch[1]);
+        
+        // Try parsing from standard scores
+        const scoresMatch = progText.textContent.match(/旧曲:\s*(\d+)\s*\+\s*新曲:\s*(\d+)/);
+        if (scoresMatch) {
+          // If we want to extract from digits elements
+          const parentDigits = doc.getElementById('svg-rating-digits') || doc.querySelector('g');
+          if (parentDigits && subSvgs.length === 5) {
+            // Find rating from digit indices
+            let rValStr = '';
+            subSvgs.forEach(s => {
+              const view = s.getAttribute('viewBox').split(' ');
+              const sx = parseFloat(view[0]);
+              const sy = parseFloat(view[1]);
+              const col = sx / 30;
+              const row = sy / 34;
+              const val = row * 4 + col;
+              rValStr += String(val);
+            });
+            ratingValue = parseInt(rValStr);
+          }
+        }
+      }
+      
+      const tsText = Array.from(texts).find(t => t.textContent.includes('更新于'));
+      if (tsText) {
+        document.getElementById('svg-timestamp').textContent = tsText.textContent;
+      }
+      
+      // 10. Sync coordinates
+      if (plateImg) {
+        updateValSilently('plate-x', plateImg.getAttribute('x'));
+        updateValSilently('plate-y', plateImg.getAttribute('y'));
+        updateValSilently('plate-w', plateImg.getAttribute('width'));
+        updateValSilently('plate-h', plateImg.getAttribute('height'));
+      }
+      if (avatarImg) {
+        updateValSilently('avatar-x', avatarImg.getAttribute('x'));
+        updateValSilently('avatar-y', avatarImg.getAttribute('y'));
+        updateValSilently('avatar-size', avatarImg.getAttribute('width'));
+      }
+      const avatarClipRect = doc.getElementById('avatar-clip') ? doc.getElementById('avatar-clip').querySelector('rect') : null;
+      if (avatarClipRect) {
+        updateValSilently('avatar-rx', avatarClipRect.getAttribute('rx'));
+      }
+      if (shingoTexts.length === 2) {
+        updateValSilently('trophy-x', shingoTexts[0].getAttribute('x'));
+        updateValSilently('trophy-y', shingoTexts[0].getAttribute('y'));
+        updateValSilently('name-x', shingoTexts[1].getAttribute('x'));
+        updateValSilently('name-y', shingoTexts[1].getAttribute('y'));
+      } else if (shingoTexts.length === 1) {
+        updateValSilently('name-x', shingoTexts[0].getAttribute('x'));
+        updateValSilently('name-y-notrophy', shingoTexts[0].getAttribute('y'));
+      }
+      if (ratingBaseImg) {
+        updateValSilently('rating-x', ratingBaseImg.getAttribute('x'));
+        updateValSilently('rating-y', ratingBaseImg.getAttribute('y'));
+        updateValSilently('rating-w', ratingBaseImg.getAttribute('width'));
+        updateValSilently('rating-h', ratingBaseImg.getAttribute('height'));
+      }
+      if (subSvgs.length > 0) {
+        updateValSilently('digits-x', subSvgs[0].getAttribute('x'));
+        updateValSilently('digits-y', subSvgs[0].getAttribute('y'));
+        if (subSvgs.length > 1) {
+          const x0 = parseFloat(subSvgs[0].getAttribute('x'));
+          const x1 = parseFloat(subSvgs[1].getAttribute('x'));
+          updateValSilently('digits-spacing', x1 - x0);
+        }
+      }
+      if (ratingStarImg) {
+        updateValSilently('star-x', ratingStarImg.getAttribute('x'));
+        updateValSilently('star-y', ratingStarImg.getAttribute('y'));
+      }
+      if (classBadgeImg) {
+        updateValSilently('class-x', classBadgeImg.getAttribute('x'));
+        updateValSilently('class-y', classBadgeImg.getAttribute('y'));
+      }
+      if (danImg) {
+        updateValSilently('dan-x', danImg.getAttribute('x'));
+        updateValSilently('dan-y', danImg.getAttribute('y'));
+      }
+      
+      const pBgRect = doc.querySelector('rect[fill="#1e1e24"]') || (doc.querySelectorAll('rect').length >= 3 ? doc.querySelectorAll('rect')[2] : null);
+      if (pBgRect) {
+        updateValSilently('prog-x', pBgRect.getAttribute('x'));
+        updateValSilently('prog-y', pBgRect.getAttribute('y'));
+        updateValSilently('prog-w', pBgRect.getAttribute('width'));
+      }
+      const docNameBg = Array.from(doc.querySelectorAll('rect')).find(r => r.getAttribute('fill') === '#ffffff' && r.getAttribute('width') && r.getAttribute('width') !== '1080' && r.getAttribute('width') !== '720');
+      if (docNameBg) {
+        updateValSilently('name-bg-x', docNameBg.getAttribute('x'));
+        updateValSilently('name-bg-y', docNameBg.getAttribute('y'));
+        updateValSilently('name-bg-w', docNameBg.getAttribute('width'));
+        updateValSilently('name-bg-h', docNameBg.getAttribute('height'));
+        updateValSilently('name-bg-rx', docNameBg.getAttribute('rx'));
+      }
+      if (progText && pBgRect) {
+        const pY = parseFloat(pBgRect.getAttribute('y'));
+        const tY = parseFloat(progText.getAttribute('y'));
+        updateValSilently('prog-text-offset', tY - pY);
+      }
+      
+      updateSvgElements();
+      updateCodeExport();
+    }
+
+    function resetAll() {
+      for (const param in defaults) {
+        updateVal(param, defaults[param]);
+      }
+      document.getElementById('input-trophy-text').value = "みるくのともだち";
+      document.getElementById('input-name-text').value = "みるく";
+      document.getElementById('select-trophy-color').value = "url(#trophy-gold)";
+      updateTrophyText("みるくのともだち");
+      updateTrophyColor("url(#trophy-gold)");
+      updateNameText("みるく");
+    }
+
+    function updateTrophyText(val) {
+      document.getElementById('svg-trophy').textContent = val;
+      updateSvgElements();
+    }
+    
+    function updateTrophyColor(val) {
+      const trophyBg = document.getElementById('svg-trophy-bg');
+      if (trophyBg) {
+        trophyBg.setAttribute('fill', val);
+      }
+    }
+    
+    function updateNameText(val) {
+      let fullWidth = '';
+      for (let i = 0; i < val.length; i++) {
+        let code = val.charCodeAt(i);
+        if (code === 32) {
+          fullWidth += String.fromCharCode(12288);
+        } else if (code >= 33 && code <= 126) {
+          fullWidth += String.fromCharCode(code + 65248);
+        } else {
+          fullWidth += val.charAt(i);
+        }
+      }
+      document.getElementById('svg-name').textContent = fullWidth;
+      updateSvgElements();
+    }
+
+    function updateCodeExport() {
+      const code = `# Maimai DX Scorecard Layout Coordinates
+# Copy-paste this block into your generate_card.py
+
+# Name Plate
+PLATE_X = ${state['plate-x']}
+PLATE_Y = ${state['plate-y']}
+PLATE_W = ${state['plate-w']}
+PLATE_H = ${state['plate-h']}
+
+# Avatar (Rounded Corner Box)
+AVATAR_X = ${state['avatar-x']}
+AVATAR_Y = ${state['avatar-y']}
+AVATAR_SIZE = ${state['avatar-size']}
+AVATAR_RX = ${state['avatar-rx']}
+
+# Player custom title (Trophy)
+TROPHY_X = ${state['trophy-x']}
+TROPHY_Y = ${state['trophy-y']}
+TROPHY_SIZE = ${state['trophy-size']}
+
+# Player name (Name)
+NAME_X = ${state['name-x']}
+NAME_Y = ${state['name-y']}
+NAME_Y_NOTROPHY = ${state['name-y-notrophy']}
+NAME_SIZE = ${state['name-size']}
+
+# Player name background box (Name BG)
+NAME_BG_X = ${state['name-bg-x']}
+NAME_BG_Y = ${state['name-bg-y']}
+NAME_BG_W = ${state['name-bg-w']}
+NAME_BG_H = ${state['name-bg-h']}
+NAME_BG_RX = ${state['name-bg-rx']}
+
+# Rating Panel Base
+RATING_X = ${state['rating-x']}
+RATING_Y = ${state['rating-y']}
+RATING_W = ${state['rating-w']}
+RATING_H = ${state['rating-h']}
+
+# Rating Digits (Numbers)
+DIGITS_X = ${state['digits-x']}
+DIGITS_Y = ${state['digits-y']}
+DIGITS_SPACING = ${state['digits-spacing']}
+
+# Star Ribbon
+STAR_X = ${state['star-x']}
+STAR_Y = ${state['star-y']}
+
+# Class Badge (B5, S0, etc.)
+CLASS_X = ${state['class-x']}
+CLASS_Y = ${state['class-y']}
+
+# Dan Title Stamp (初心者, etc.)
+DAN_X = ${state['dan-x']}
+DAN_Y = ${state['dan-y']}
+
+# B35/B15 Progress Bar
+PROG_X = ${state['prog-x']}
+PROG_Y = ${state['prog-y']}
+PROG_W = ${state['prog-w']}
+PROG_TEXT_OFFSET = ${state['prog-text-offset']}`;
+
+      document.getElementById('code-export-box').value = code;
+    }
+
+    function copyCode() {
+      const box = document.getElementById('code-export-box');
+      box.select();
+      document.execCommand('copy');
+      
+      const toast = document.getElementById('toast');
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 2000);
+    }
+
+    window.onload = init;
+  </script>
+</body>
+</html>
