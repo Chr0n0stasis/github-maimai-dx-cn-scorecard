@@ -28,6 +28,20 @@ def fetch_image_as_base64(url):
         print(f"警告: 无法下载图片 {url}: {e}")
     return None
 
+def load_local_image_as_base64(filename):
+    """
+    加载本地图片并转换为 base64 data URI
+    """
+    try:
+        path = os.path.join(SCRIPT_DIR, 'assets', filename)
+        if os.path.exists(path):
+            with open(path, 'rb') as f:
+                encoded = base64.b64encode(f.read()).decode('utf-8')
+            return f"data:image/png;base64,{encoded}"
+    except Exception as e:
+        print(f"警告: 无法加载本地图片 {filename}: {e}")
+    return None
+
 def get_player_data_lxns(token=None, qq=None, friend_code=None, dev_token=None):
     """
     从落雪 API 获取玩家信息和 B50 数据
@@ -79,13 +93,13 @@ def get_player_data_lxns(token=None, qq=None, friend_code=None, dev_token=None):
                     standard_scores = [s for s in scores if s.get("type") == "standard"]
                     dx_scores = [s for s in scores if s.get("type") == "dx"]
                     
-                    # 按成绩定数 rating 降序排列
-                    standard_scores.sort(key=lambda x: x.get("dx_rating", 0), reverse=True)
-                    dx_scores.sort(key=lambda x: x.get("dx_rating", 0), reverse=True)
+                    # 按成绩定数 rating 降序排列 (向下取整)
+                    standard_scores.sort(key=lambda x: int(float(x.get("dx_rating", 0))), reverse=True)
+                    dx_scores.sort(key=lambda x: int(float(x.get("dx_rating", 0))), reverse=True)
                     
                     # 取旧曲前 35 和新曲前 15
-                    b35 = sum(int(s.get("dx_rating", 0)) for s in standard_scores[:35])
-                    b15 = sum(int(s.get("dx_rating", 0)) for s in dx_scores[:15])
+                    b35 = sum(int(float(s.get("dx_rating", 0))) for s in standard_scores[:35])
+                    b15 = sum(int(float(s.get("dx_rating", 0))) for s in dx_scores[:15])
         elif dev_token and fc:
             bests_url = f"https://maimai.lxns.net/api/v0/maimai/player/{fc}/bests"
             print(f"正在获取 B50 详情: {bests_url}")
@@ -117,32 +131,75 @@ def generate_svg_card(player_data, b35=0, b15=0):
     plate_base64 = fetch_image_as_base64(f"https://assets2.lxns.net/maimai/plate/{plate_id}.png")
     frame_base64 = fetch_image_as_base64(f"https://assets2.lxns.net/maimai/frame/{frame_id}.png")
     
+    # 获取本地 Rating 资源
+    if rating < 1000:
+        base_file = "UI_CMN_DXRating_01.png"
+    elif rating < 2000:
+        base_file = "UI_CMN_DXRating_03.png"
+    elif rating < 4000:
+        base_file = "UI_CMN_DXRating_04.png"
+    elif rating < 7000:
+        base_file = "UI_CMN_DXRating_05.png"
+    elif rating < 10000:
+        base_file = "UI_CMN_DXRating_06.png"
+    elif rating < 12000:
+        base_file = "UI_CMN_DXRating_07.png"
+    elif rating < 13000:
+        base_file = "UI_CMN_DXRating_08.png"
+    elif rating < 14000:
+        base_file = "UI_CMN_DXRating_09.png"
+    elif rating < 15000:
+        base_file = "UI_CMN_DXRating_11.png"
+    else:
+        base_file = "UI_CMN_DXRating_12.png"
+        
+    rating_base_base64 = load_local_image_as_base64(base_file)
+    num_spritesheet_base64 = load_local_image_as_base64("UI_NUM_Drating.png")
+    
     # 容错处理：如果下载失败则渲染默认形状
     if not frame_base64:
-        frame_element = '<rect width="495" height="195" fill="url(#bg-gradient)" rx="10"/>'
+        frame_element = '<rect width="1080" height="160" fill="url(#bg-gradient)" rx="15"/>'
     else:
-        frame_element = f'<image href="{frame_base64}" x="0" y="0" width="495" height="195" preserveAspectRatio="none" clip-path="url(#rounded-clip)"/>'
+        frame_element = f'<image href="{frame_base64}" x="0" y="0" width="1080" height="452" preserveAspectRatio="xMidYMin slice" clip-path="url(#rounded-clip)"/>'
         
     if not plate_base64:
-        plate_element = '<rect x="120" y="80" width="223" height="36" rx="6" fill="#ffffff" stroke="#e0e0e0" stroke-width="1.5"/>'
+        plate_element = '<rect x="185" y="56" width="298" height="48" rx="6" fill="#ffffff" stroke="#e0e0e0" stroke-width="1.5"/>'
     else:
-        plate_element = f'<image href="{plate_base64}" x="120" y="80" width="223" height="36" />'
+        plate_element = f'<image href="{plate_base64}" x="185" y="56" width="298" height="48" />'
         
     if not icon_base64:
-        icon_element = '<circle cx="68" cy="97.5" r="42" fill="#4a4a5a" /><text x="68" y="103" font-family="Arial" font-size="16" fill="#fff" text-anchor="middle">Icon</text>'
+        icon_element = '<circle cx="95" cy="80" r="55" fill="#4a4a5a" /><text x="95" y="85" font-family="Arial" font-size="16" fill="#fff" text-anchor="middle">Icon</text>'
     else:
-        icon_element = f'<image href="{icon_base64}" x="26" y="55.5" width="84" height="84" clip-path="url(#avatar-clip)" />'
+        icon_element = f'<image href="{icon_base64}" x="40" y="25" width="110" height="110" clip-path="url(#avatar-clip)" />'
 
-    # 生成 Rating 的滚轮式数字展示 (5位数字)
-    rating_str = f"{rating:05d}"
-    digits_svg = []
-    for i, char in enumerate(rating_str):
-        dx = 202 + i * 17
-        dy = 37
-        digits_svg.append(f'''
-    <rect x="{dx}" y="{dy}" width="14" height="26" rx="3" fill="#1e1e1e" />
-    <text x="{dx + 7}" y="{dy + 19}" font-family="monospace, Arial" font-size="16" font-weight="bold" fill="#ffe135" text-anchor="middle">{char}</text>''')
-    digits_elements = "\n".join(digits_svg)
+    # 绘制 Rating 框和数字
+    if not rating_base_base64:
+        rating_base_element = '<rect x="185" y="15" width="184" height="36" rx="6" fill="#f5b000" />'
+    else:
+        rating_base_element = f'<image href="{rating_base_base64}" x="185" y="15" width="184" height="36" />'
+
+    digits_elements = ""
+    if num_spritesheet_base64:
+        rating_str = f"{rating:05d}"
+        digits_svg = []
+        for i, char in enumerate(rating_str):
+            try:
+                val = int(char)
+            except ValueError:
+                val = 0
+            col = val % 4
+            row = val // 4
+            sx = col * 30
+            sy = row * 34
+            dx = 272 + i * 15
+            dy = 22
+            digits_svg.append(f'''
+  <svg x="{dx}" y="{dy}" width="11" height="12.5" viewBox="{sx} {sy} 30 34">
+    <image href="{num_spritesheet_base64}" x="0" y="0" width="120" height="136" />
+  </svg>''')
+        digits_elements = "\n".join(digits_svg)
+    else:
+        digits_elements = f'<text x="277" y="38" font-family="monospace, Arial" font-size="16" font-weight="bold" fill="#ffffff">{rating}</text>'
 
     # 计算旧曲与新曲的进度条文本
     if b35 > 0 or b15 > 0:
@@ -150,20 +207,27 @@ def generate_svg_card(player_data, b35=0, b15=0):
     else:
         progress_text = f"Rating: {rating}"
 
+    # 称号 (Trophy) 渲染
+    trophy_name = player_data.get('trophy', {}).get('name', '') if player_data.get('trophy') else ''
+    trophy_element = ""
+    if trophy_name:
+        trophy_esc = escape_xml(trophy_name)
+        trophy_element = f'''
+  <!-- 称号气泡/贴纸 -->
+  <rect x="380" y="66" width="85" height="28" rx="14" fill="#ffffff" stroke="#ff4d4f" stroke-width="1.5" />
+  <text x="422.5" y="85" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#ff4d4f" text-anchor="middle">{trophy_esc}</text>
+'''
+
     # 防止玩家名字过长溢出姓名框
     name_esc = escape_xml(name)
-    name_attrs = 'font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="#333333"'
+    name_attrs = 'font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="#111111"'
     if len(name) > 10:
         name_attrs += ' textLength="160" lengthAdjust="spacingAndGlyphs"'
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-    svg = f'''<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="495" height="195" viewBox="0 0 495 195">
+    svg = f'''<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1080" height="160" viewBox="0 0 1080 160">
   <defs>
-    <linearGradient id="gold-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#ffe047"/>
-      <stop offset="100%" style="stop-color:#f5b000"/>
-    </linearGradient>
     <linearGradient id="bar-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%" style="stop-color:#ff7e5f"/>
       <stop offset="50%" style="stop-color:#feb47b"/>
@@ -174,15 +238,15 @@ def generate_svg_card(player_data, b35=0, b15=0):
       <stop offset="100%" style="stop-color:#16213e"/>
     </linearGradient>
     <clipPath id="rounded-clip">
-      <rect width="495" height="195" rx="10"/>
+      <rect width="1080" height="160" rx="15"/>
     </clipPath>
     <clipPath id="avatar-clip">
-      <circle cx="68" cy="97.5" r="42" />
+      <circle cx="95" cy="80" r="55" />
     </clipPath>
   </defs>
   
   <!-- 黑色底框 -->
-  <rect width="495" height="195" fill="#121214" rx="10"/>
+  <rect width="1080" height="160" fill="#121214" rx="15"/>
   
   <!-- 游戏背景板 Frame -->
   {frame_element}
@@ -191,24 +255,25 @@ def generate_svg_card(player_data, b35=0, b15=0):
   {plate_element}
   
   <!-- 玩家昵称 -->
-  <text x="132" y="105" {name_attrs}>{name_esc}</text>
+  <text x="205" y="86" {name_attrs}>{name_esc}</text>
   
-  <!-- 头像 Icon (置于层级上方以防止遮挡) -->
+  {trophy_element}
+  
+  <!-- 头像 Icon (置于层级上方并带上圆形白边) -->
   {icon_element}
+  <circle cx="95" cy="80" r="55" fill="none" stroke="#ffffff" stroke-width="4" />
   
   <!-- 评分面板 RATING -->
-  <rect x="120" y="28" width="175" height="44" rx="10" fill="url(#gold-gradient)" stroke="#d48a00" stroke-width="2" />
-  <text x="128" y="43" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#d33c00">てらっくす</text>
-  <text x="128" y="60" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#0072b2">RATING</text>
+  {rating_base_element}
   {digits_elements}
   
   <!-- B35 + B15 进度条 -->
-  <rect x="120" y="140" width="223" height="22" rx="11" fill="#1e1e24" stroke="#4a4a5a" stroke-width="1.5" />
-  <rect x="122" y="142" width="219" height="18" rx="9" fill="url(#bar-gradient)" />
-  <text x="231" y="156" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#000000" text-anchor="middle">{progress_text}</text>
+  <rect x="185" y="110" width="298" height="30" rx="15" fill="#1e1e24" stroke="#4a4a5a" stroke-width="1.5" />
+  <rect x="187" y="112" width="294" height="26" rx="13" fill="url(#bar-gradient)" />
+  <text x="334" y="130" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#000000" text-anchor="middle">{progress_text}</text>
   
   <!-- 更新时间戳 -->
-  <text x="485" y="185" font-family="Arial, sans-serif" font-size="9" fill="#ffffff" opacity="0.6" text-anchor="end">
+  <text x="1060" y="145" font-family="Arial, sans-serif" font-size="11" fill="#ffffff" opacity="0.8" text-anchor="end">
     更新于 {timestamp} · Lxns API
   </text>
 </svg>'''
@@ -240,7 +305,7 @@ def main():
     
     # 优先读取环境变量，其次读取命令行参数
     token = args.token or os.environ.get("LXNS_TOKEN")
-    dev_token = args.dev-token or os.environ.get("LXNS_DEV_TOKEN") if hasattr(args, 'dev-token') else os.environ.get("LXNS_DEV_TOKEN")
+    dev_token = args.dev_token or os.environ.get("LXNS_DEV_TOKEN") if hasattr(args, 'dev_token') else os.environ.get("LXNS_DEV_TOKEN")
     # 兼容 argparse 对带有减号参数的解析
     if not dev_token:
         # 手动解析命令行中可能的 --dev-token
