@@ -11,6 +11,9 @@ on:
     paths:
       - '.github/workflows/maimai-card.yml'
 
+permissions:
+  contents: write
+
 jobs:
   update-card:
     runs-on: ubuntu-latest
