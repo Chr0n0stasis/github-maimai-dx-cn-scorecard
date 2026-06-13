@@ -12,9 +12,8 @@
 
 2. **设置 GitHub Secrets**
    - 进入你 Fork 的仓库 → Settings → Secrets and variables → Actions
-   - 添加以下其中一个 Secret：
-     - `MAIMAI_USERNAME`: 你的查分器用户名
-     - `MAIMAI_QQ`: 你绑定的 QQ 号
+   - 添加以下 Secret：
+     - `LXNS_TOKEN`: 你的落雪咖啡屋查分器个人 API 密钥（获取路径：落雪查分器官网 → 账号详情 → 生成个人 API 密钥）
 
 3. **启用 GitHub Actions**
    - 进入 Actions 标签页
@@ -62,8 +61,10 @@ python generate_card.py --qq 你的QQ号 --output maimai-card.svg
 
 | Secret | 说明 | 必填 |
 |--------|------|------|
-| `MAIMAI_USERNAME` | 查分器用户名 | 二选一 |
-| `MAIMAI_QQ` | 绑定的 QQ 号 | 二选一 |
+| `LXNS_TOKEN` | 落雪咖啡屋个人 API 密钥 | 是 (推荐) |
+| `LXNS_DEV_TOKEN` | 落雪咖啡屋开发者 API 密钥 | 否 |
+| `MAIMAI_QQ` | 绑定的 QQ 号（使用开发者 Token 时必填） | 否 |
+| `MAIMAI_FRIEND_CODE` | 游戏好友码（使用开发者 Token 时必填） | 否 |
 
 ### 更新频率
 

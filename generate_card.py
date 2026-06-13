@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Maimai DX 玩家信息卡片生成器
+Maimai DX 玩家信息卡片生成器 (Lxns API 版)
 用于生成类似 maimai 上屏展示的 SVG 图片，可嵌入 GitHub README
 """
 
@@ -8,265 +8,208 @@ import requests
 import sys
 import base64
 import os
+import urllib.request
 from datetime import datetime
 
 # 默认配置文件路径
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-TITLE_FILE = os.path.join(SCRIPT_DIR, "title.txt")
-BACKGROUNDS_DIR = os.path.join(SCRIPT_DIR, "backgrounds")
 
-
-def load_title_from_file(filepath=TITLE_FILE):
-    """从文件加载称号"""
-    if not os.path.exists(filepath):
-        return ""
-    
-    with open(filepath, 'r', encoding='utf-8') as f:
-        for line in f:
-            line = line.strip()
-            # 跳过空行和注释行
-            if line and not line.startswith('#'):
-                return line
-    return ""
-
-
-def find_background_image(backgrounds_dir=BACKGROUNDS_DIR):
-    """自动查找背景图片（取第一个找到的图片）"""
-    if not os.path.exists(backgrounds_dir):
-        return None
-    
-    supported_exts = ('.png', '.jpg', '.jpeg', '.gif', '.webp')
-    for filename in os.listdir(backgrounds_dir):
-        if filename.lower().endswith(supported_exts) and not filename.startswith('.'):
-            return os.path.join(backgrounds_dir, filename)
+def fetch_image_as_base64(url):
+    """
+    下载图片并转换为 base64 data URI
+    """
+    try:
+        r = requests.get(url, timeout=10)
+        if r.status_code == 200:
+            content_type = r.headers.get("Content-Type", "image/png")
+            encoded = base64.b64encode(r.content).decode('utf-8')
+            return f"data:{content_type};base64,{encoded}"
+    except Exception as e:
+        print(f"警告: 无法下载图片 {url}: {e}")
     return None
 
-
-def get_player_data(username=None, qq=None):
-    """获取玩家数据"""
-    payload = {"b50": "1"}
-    if username:
-        payload["username"] = username
-    elif qq:
-        payload["qq"] = qq
-    else:
-        raise ValueError("必须提供 username 或 qq")
-    
-    response = requests.post(
-        "https://www.diving-fish.com/api/maimaidxprober/query/player",
-        json=payload,
-        timeout=10
-    )
-    
-    if response.status_code == 400:
-        raise Exception("用户不存在")
-    elif response.status_code == 403:
-        raise Exception("用户已设置隐私或未同意用户协议")
-    elif response.status_code != 200:
-        raise Exception(f"API 请求失败: {response.status_code}")
-    
-    return response.json()
-
-def get_rating_color(rating):
-    """根据 Rating 返回对应颜色"""
-    if rating < 1000:
-        return "#FFFFFF"  # 白
-    elif rating < 2000:
-        return "#00BFFF"  # 蓝
-    elif rating < 4000:
-        return "#00FF00"  # 绿
-    elif rating < 7000:
-        return "#FFFF00"  # 黄
-    elif rating < 10000:
-        return "#FF6347"  # 红
-    elif rating < 12000:
-        return "#9932CC"  # 紫
-    elif rating < 13000:
-        return "#CD7F32"  # 铜
-    elif rating < 14000:
-        return "#C0C0C0"  # 银
-    elif rating < 14500:
-        return "#FFD700"  # 金
-    elif rating < 15000:
-        return "#E5E4E2"  # 白金
-    else:
-        return "url(#rainbow)"  # 彩虹渐变
-
-def get_rating_bg_class(rating):
-    """获取 Rating 背景样式"""
-    if rating >= 15000:
-        return "rainbow-bg"
-    return ""
-
-def get_dan_name(additional_rating):
-    """获取段位名称"""
-    dan_names = [
-        "初学者", "一段", "二段", "三段", "四段", "五段",
-        "六段", "七段", "八段", "九段", "十段",
-        "真初段", "真二段", "真三段", "真四段", "真五段",
-        "真六段", "真七段", "真八段", "真九段", "真十段",
-        "真皆传", "里皆传"
-    ]
-    if 0 <= additional_rating < len(dan_names):
-        return dan_names[additional_rating]
-    return "未知"
-
-def image_to_base64(image_path):
-    """将图片转换为 base64 编码"""
-    if not image_path or not os.path.exists(image_path):
-        return None
-    
-    # 获取图片类型
-    ext = os.path.splitext(image_path)[1].lower()
-    mime_types = {
-        '.png': 'image/png',
-        '.jpg': 'image/jpeg',
-        '.jpeg': 'image/jpeg',
-        '.gif': 'image/gif',
-        '.webp': 'image/webp'
-    }
-    mime_type = mime_types.get(ext, 'image/png')
-    
-    with open(image_path, 'rb') as f:
-        encoded = base64.b64encode(f.read()).decode('utf-8')
-    
-    return f"data:{mime_type};base64,{encoded}"
-
-
-def generate_svg_card(player_data, custom_title="", custom_bg=""):
-    """生成 SVG 格式的玩家信息卡片
-    
-    Args:
-        player_data: API 返回的玩家数据
-        custom_title: 自定义称号文本
-        custom_bg: 自定义背景图片路径
+def get_player_data_lxns(token=None, qq=None, friend_code=None, dev_token=None):
     """
-    nickname = player_data.get('nickname', '未知')
-    rating = player_data.get('rating', 0)
-    plate = player_data.get('plate', '')
-    dan = player_data.get('additional_rating', 0)
-    title = custom_title  # 使用自定义称号
+    从落雪 API 获取玩家信息和 B50 数据
+    """
+    headers = {}
+    player_url = ""
+    scores_url = ""
     
-    # 计算 B50 Rating
-    dx_charts = player_data.get('charts', {}).get('dx', [])
-    sd_charts = player_data.get('charts', {}).get('sd', [])
-    
-    # 排序并取前15个DX成绩和前35个SD成绩
-    dx_sorted = sorted(dx_charts, key=lambda x: x.get('ra', 0), reverse=True)[:15]
-    sd_sorted = sorted(sd_charts, key=lambda x: x.get('ra', 0), reverse=True)[:35]
-    
-    dx_rating = sum(chart.get('ra', 0) for chart in dx_sorted)
-    sd_rating = sum(chart.get('ra', 0) for chart in sd_sorted)
-    
-    rating_color = get_rating_color(rating)
-    dan_name = get_dan_name(dan)
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-    
-    # 计算最高成绩
-    all_charts = dx_charts + sd_charts
-    best_achievement = max((c.get('achievements', 0) for c in all_charts), default=0) if all_charts else 0
-    
-    # 处理背景图片
-    bg_image_data = image_to_base64(custom_bg) if custom_bg else None
-    
-    # 背景元素
-    if bg_image_data:
-        bg_element = f'''<image href="{bg_image_data}" x="0" y="0" width="495" height="195" preserveAspectRatio="xMidYMid slice" clip-path="url(#rounded-clip)"/>
-  <rect width="495" height="195" fill="rgba(0,0,0,0.5)" rx="10"/>'''
+    if token:
+        headers = {"X-User-Token": token}
+        player_url = "https://maimai.lxns.net/api/v0/user/maimai/player"
+        scores_url = "https://maimai.lxns.net/api/v0/user/maimai/player/scores"
+    elif dev_token:
+        headers = {"Authorization": dev_token}
+        if qq:
+            player_url = f"https://maimai.lxns.net/api/v0/maimai/player/qq/{qq}"
+        elif friend_code:
+            player_url = f"https://maimai.lxns.net/api/v0/maimai/player/{friend_code}"
+        else:
+            raise ValueError("使用开发者 Token 必须提供 qq 或 friend_code")
     else:
-        bg_element = '<rect width="495" height="195" fill="url(#bg-gradient)" rx="10"/>'
+        raise ValueError("必须提供个人 Token (token) 或 开发者 Token (dev_token)")
+
+    # 1. 获取玩家基础资料
+    print(f"正在从落雪 API 获取玩家资料: {player_url}")
+    r = requests.get(player_url, headers=headers, timeout=10)
+    if r.status_code != 200:
+        raise Exception(f"获取玩家信息失败: HTTP {r.status_code}, {r.text}")
     
+    res = r.json()
+    if not res.get("success"):
+        raise Exception(f"获取玩家信息失败: {res.get('message')}")
+    
+    player_data = res.get("data", {})
+    
+    # 2. 获取 B50 成绩总和 (旧曲 B35 + 新曲 B15)
+    b35 = 0
+    b15 = 0
+    fc = friend_code or player_data.get("friend_code")
+    
+    try:
+        if token:
+            print(f"正在获取所有成绩列表以计算 B50: {scores_url}")
+            r_scores = requests.get(scores_url, headers=headers, timeout=10)
+            if r_scores.status_code == 200:
+                res_scores = r_scores.json()
+                if res_scores.get("success"):
+                    scores = res_scores.get("data", [])
+                    standard_scores = [s for s in scores if s.get("type") == "standard"]
+                    dx_scores = [s for s in scores if s.get("type") == "dx"]
+                    
+                    # 按成绩定数 rating 降序排列
+                    standard_scores.sort(key=lambda x: x.get("dx_rating", 0), reverse=True)
+                    dx_scores.sort(key=lambda x: x.get("dx_rating", 0), reverse=True)
+                    
+                    # 取旧曲前 35 和新曲前 15
+                    b35 = sum(int(s.get("dx_rating", 0)) for s in standard_scores[:35])
+                    b15 = sum(int(s.get("dx_rating", 0)) for s in dx_scores[:15])
+        elif dev_token and fc:
+            bests_url = f"https://maimai.lxns.net/api/v0/maimai/player/{fc}/bests"
+            print(f"正在获取 B50 详情: {bests_url}")
+            r_bests = requests.get(bests_url, headers=headers, timeout=10)
+            if r_bests.status_code == 200:
+                res_bests = r_bests.json()
+                if res_bests.get("success"):
+                    bests_data = res_bests.get("data", {})
+                    b35 = bests_data.get("standard_total", 0)
+                    b15 = bests_data.get("dx_total", 0)
+    except Exception as e:
+        print(f"警告: 无法获取或计算 B50 详情: {e}")
+        
+    return player_data, b35, b15
+
+def generate_svg_card(player_data, b35=0, b15=0):
+    """
+    生成 SVG 格式的玩家卡片 (类似于 maimai 上屏展示)
+    """
+    name = player_data.get('name', '未知')
+    rating = player_data.get('rating', 0)
+    
+    icon_id = player_data.get('icon', {}).get('id', 1) if player_data.get('icon') else 1
+    plate_id = player_data.get('name_plate', {}).get('id', 1) if player_data.get('name_plate') else 1
+    frame_id = player_data.get('frame', {}).get('id', 1) if player_data.get('frame') else 1
+    
+    # 异步下载相关游戏资源并转为 base64
+    icon_base64 = fetch_image_as_base64(f"https://assets2.lxns.net/maimai/icon/{icon_id}.png")
+    plate_base64 = fetch_image_as_base64(f"https://assets2.lxns.net/maimai/plate/{plate_id}.png")
+    frame_base64 = fetch_image_as_base64(f"https://assets2.lxns.net/maimai/frame/{frame_id}.png")
+    
+    # 容错处理：如果下载失败则渲染默认形状
+    if not frame_base64:
+        frame_element = '<rect width="495" height="195" fill="url(#bg-gradient)" rx="10"/>'
+    else:
+        frame_element = f'<image href="{frame_base64}" x="0" y="0" width="495" height="195" preserveAspectRatio="none" clip-path="url(#rounded-clip)"/>'
+        
+    if not plate_base64:
+        plate_element = '<rect x="120" y="80" width="223" height="36" rx="6" fill="#ffffff" stroke="#e0e0e0" stroke-width="1.5"/>'
+    else:
+        plate_element = f'<image href="{plate_base64}" x="120" y="80" width="223" height="36" />'
+        
+    if not icon_base64:
+        icon_element = '<circle cx="68" cy="97.5" r="42" fill="#4a4a5a" /><text x="68" y="103" font-family="Arial" font-size="16" fill="#fff" text-anchor="middle">Icon</text>'
+    else:
+        icon_element = f'<image href="{icon_base64}" x="26" y="55.5" width="84" height="84" clip-path="url(#avatar-clip)" />'
+
+    # 生成 Rating 的滚轮式数字展示 (5位数字)
+    rating_str = f"{rating:05d}"
+    digits_svg = []
+    for i, char in enumerate(rating_str):
+        dx = 202 + i * 17
+        dy = 37
+        digits_svg.append(f'''
+    <rect x="{dx}" y="{dy}" width="14" height="26" rx="3" fill="#1e1e1e" />
+    <text x="{dx + 7}" y="{dy + 19}" font-family="monospace, Arial" font-size="16" font-weight="bold" fill="#ffe135" text-anchor="middle">{char}</text>''')
+    digits_elements = "\n".join(digits_svg)
+
+    # 计算旧曲与新曲的进度条文本
+    if b35 > 0 or b15 > 0:
+        progress_text = f"旧曲: {b35} + 新曲: {b15}"
+    else:
+        progress_text = f"Rating: {rating}"
+
+    # 防止玩家名字过长溢出姓名框
+    name_esc = escape_xml(name)
+    name_attrs = 'font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="#333333"'
+    if len(name) > 10:
+        name_attrs += ' textLength="160" lengthAdjust="spacingAndGlyphs"'
+
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+
     svg = f'''<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="495" height="195" viewBox="0 0 495 195">
   <defs>
-    <linearGradient id="rainbow" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" style="stop-color:#ff0000"/>
-      <stop offset="16%" style="stop-color:#ff8000"/>
-      <stop offset="33%" style="stop-color:#ffff00"/>
-      <stop offset="50%" style="stop-color:#00ff00"/>
-      <stop offset="66%" style="stop-color:#00ffff"/>
-      <stop offset="83%" style="stop-color:#0080ff"/>
-      <stop offset="100%" style="stop-color:#ff00ff"/>
+    <linearGradient id="gold-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffe047"/>
+      <stop offset="100%" style="stop-color:#f5b000"/>
+    </linearGradient>
+    <linearGradient id="bar-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#ff7e5f"/>
+      <stop offset="50%" style="stop-color:#feb47b"/>
+      <stop offset="100%" style="stop-color:#00c6ff"/>
     </linearGradient>
     <linearGradient id="bg-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" style="stop-color:#1a1a2e"/>
       <stop offset="100%" style="stop-color:#16213e"/>
     </linearGradient>
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
-      <feMerge>
-        <feMergeNode in="coloredBlur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
     <clipPath id="rounded-clip">
       <rect width="495" height="195" rx="10"/>
     </clipPath>
+    <clipPath id="avatar-clip">
+      <circle cx="68" cy="97.5" r="42" />
+    </clipPath>
   </defs>
   
-  <!-- 背景 -->
-  {bg_element}
+  <!-- 黑色底框 -->
+  <rect width="495" height="195" fill="#121214" rx="10"/>
   
-  <!-- 边框装饰 -->
-  <rect x="2" y="2" width="491" height="191" fill="none" stroke="#4a4a6a" stroke-width="2" rx="9"/>
+  <!-- 游戏背景板 Frame -->
+  {frame_element}
   
-  <!-- 顶部装饰条 -->
-  <rect x="10" y="10" width="475" height="4" fill="#ff6b9d" rx="2"/>
-  
-  <!-- 标题区域 -->
-  <text x="20" y="45" font-family="Arial, sans-serif" font-size="12" fill="#888">
-    <tspan>maimai DX</tspan>
-  </text>
+  <!-- 姓名框 Plate -->
+  {plate_element}
   
   <!-- 玩家昵称 -->
-  <text x="20" y="75" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#ffffff" filter="url(#glow)">
-    {escape_xml(nickname)}
-  </text>
+  <text x="132" y="105" {name_attrs}>{name_esc}</text>
   
-  <!-- Rating 显示 -->
-  <text x="20" y="105" font-family="Arial, sans-serif" font-size="14" fill="#aaa">Rating</text>
-  <text x="80" y="105" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="{rating_color}">
-    {rating}
-  </text>
+  <!-- 头像 Icon (置于层级上方以防止遮挡) -->
+  {icon_element}
   
-  <!-- 段位 -->
-  <rect x="180" y="88" width="80" height="24" fill="#2a2a4a" rx="4"/>
-  <text x="220" y="105" font-family="Arial, sans-serif" font-size="14" fill="#ffd700" text-anchor="middle">
-    {dan_name}
-  </text>
+  <!-- 评分面板 RATING -->
+  <rect x="120" y="28" width="175" height="44" rx="10" fill="url(#gold-gradient)" stroke="#d48a00" stroke-width="2" />
+  <text x="128" y="43" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#d33c00">てらっくす</text>
+  <text x="128" y="60" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#0072b2">RATING</text>
+  {digits_elements}
   
-  <!-- 称号 -->
-  <text x="20" y="132" font-family="Arial, sans-serif" font-size="12" fill="#aaa">称号</text>
-  <text x="60" y="132" font-family="Arial, sans-serif" font-size="13" fill="#c9a0dc">
-    {escape_xml(title) if title else '(未设置)'}
-  </text>
+  <!-- B35 + B15 进度条 -->
+  <rect x="120" y="140" width="223" height="22" rx="11" fill="#1e1e24" stroke="#4a4a5a" stroke-width="1.5" />
+  <rect x="122" y="142" width="219" height="18" rx="9" fill="url(#bar-gradient)" />
+  <text x="231" y="156" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#000000" text-anchor="middle">{progress_text}</text>
   
-  <!-- 牌子 (仅在有牌子时显示) -->
-  {f'''<text x="20" y="155" font-family="Arial, sans-serif" font-size="12" fill="#aaa">牌子</text>
-  <text x="60" y="155" font-family="Arial, sans-serif" font-size="13" fill="#ffd700">{escape_xml(plate)}</text>''' if plate else ''}
-  
-  <!-- 分割线 -->
-  <line x1="280" y1="30" x2="280" y2="165" stroke="#3a3a5a" stroke-width="1"/>
-  
-  <!-- 右侧数据面板 -->
-  <text x="300" y="50" font-family="Arial, sans-serif" font-size="12" fill="#888">Best 50 详情</text>
-  
-  <!-- DX Rating -->
-  <rect x="300" y="60" width="175" height="35" fill="#1e3a5f" rx="4"/>
-  <text x="310" y="78" font-family="Arial, sans-serif" font-size="11" fill="#4da6ff">B15</text>
-  <text x="465" y="85" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="#4da6ff" text-anchor="end">
-    {dx_rating}
-  </text>
-  
-  <!-- SD Rating -->
-  <rect x="300" y="100" width="175" height="35" fill="#5f3a1e" rx="4"/>
-  <text x="310" y="118" font-family="Arial, sans-serif" font-size="11" fill="#ffa64d">B35</text>
-  <text x="465" y="125" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="#ffa64d" text-anchor="end">
-    {sd_rating}
-  </text>
-  
-  <!-- 底部时间戳 -->
-  <text x="20" y="180" font-family="Arial, sans-serif" font-size="10" fill="#555">
-    更新于 {timestamp} · Powered by diving-fish
+  <!-- 更新时间戳 -->
+  <text x="485" y="185" font-family="Arial, sans-serif" font-size="9" fill="#ffffff" opacity="0.6" text-anchor="end">
+    更新于 {timestamp} · Lxns API
   </text>
 </svg>'''
     
@@ -286,41 +229,57 @@ def escape_xml(text):
 def main():
     import argparse
     
-    parser = argparse.ArgumentParser(description='生成 maimai DX 玩家信息卡片')
-    parser.add_argument('--username', '-u', help='查分器用户名')
-    parser.add_argument('--qq', '-q', help='绑定的QQ号')
+    parser = argparse.ArgumentParser(description='生成 maimai DX 玩家信息卡片 (Lxns API)')
+    parser.add_argument('--token', help='落雪个人 API 密钥 (X-User-Token)')
+    parser.add_argument('--dev-token', help='落雪开发者 API 密钥 (Authorization)')
+    parser.add_argument('--qq', help='绑定的 QQ 号')
+    parser.add_argument('--friend-code', help='好友码')
     parser.add_argument('--output', '-o', default='maimai-card.svg', help='输出文件路径')
-    parser.add_argument('--title', '-t', help='自定义称号 (不指定则从 title.txt 读取)')
-    parser.add_argument('--background', '-b', help='自定义背景图片路径 (不指定则从 backgrounds/ 自动查找)')
     
     args = parser.parse_args()
     
-    if not args.username and not args.qq:
-        print("错误: 必须提供 --username 或 --qq 参数")
+    # 优先读取环境变量，其次读取命令行参数
+    token = args.token or os.environ.get("LXNS_TOKEN")
+    dev_token = args.dev-token or os.environ.get("LXNS_DEV_TOKEN") if hasattr(args, 'dev-token') else os.environ.get("LXNS_DEV_TOKEN")
+    # 兼容 argparse 对带有减号参数的解析
+    if not dev_token:
+        # 手动解析命令行中可能的 --dev-token
+        for idx, arg in enumerate(sys.argv):
+            if arg == '--dev-token' and idx + 1 < len(sys.argv):
+                dev_token = sys.argv[idx + 1]
+                
+    qq = args.qq or os.environ.get("MAIMAI_QQ")
+    friend_code = args.friend_code or os.environ.get("MAIMAI_FRIEND_CODE")
+    
+    if not token and not dev_token:
+        print("错误: 必须提供个人 Token (通过环境变量 LXNS_TOKEN 或参数 --token) "
+              "或 开发者 Token (通过环境变量 LXNS_DEV_TOKEN 或参数 --dev-token)")
+        sys.exit(1)
+        
+    if dev_token and not qq and not friend_code:
+        print("错误: 使用开发者 Token 时，必须提供 QQ 号 (--qq) 或 好友码 (--friend-code)")
         sys.exit(1)
     
     try:
         print(f"正在获取玩家数据...")
-        data = get_player_data(username=args.username, qq=args.qq)
+        player_data, b35, b15 = get_player_data_lxns(
+            token=token,
+            qq=qq,
+            friend_code=friend_code,
+            dev_token=dev_token
+        )
         
-        # 加载称号：命令行参数 > title.txt
-        title = args.title if args.title else load_title_from_file()
-        
-        # 加载背景：命令行参数 > backgrounds/ 文件夹
-        background = args.background if args.background else find_background_image()
-        
-        print(f"玩家: {data.get('nickname', '未知')}")
-        print(f"Rating: {data.get('rating', 0)}")
-        print(f"称号: {title or '(未设置，编辑 title.txt 添加)'}")
-        print(f"背景: {background or '(未设置，放入 backgrounds/ 文件夹)'}")
+        print(f"玩家: {player_data.get('name', '未知')}")
+        print(f"Rating: {player_data.get('rating', 0)}")
+        print(f"旧曲 B35: {b35} | 新曲 B15: {b15}")
         
         print(f"正在生成卡片...")
-        svg = generate_svg_card(data, custom_title=title, custom_bg=background or '')
+        svg = generate_svg_card(player_data, b35=b35, b15=b15)
         
         with open(args.output, 'w', encoding='utf-8') as f:
             f.write(svg)
         
-        print(f"✅ 卡片已生成: {args.output}")
+        print(f"✅ 卡片已成功生成: {args.output}")
         
     except Exception as e:
         print(f"❌ 错误: {e}")
