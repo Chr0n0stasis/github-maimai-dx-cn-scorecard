@@ -95,10 +95,10 @@
   <!-- B35 + B15 进度条 -->
   <rect x="29" y="143" width="243" height="32" rx="16" fill="#1e1e24" stroke="#4a4a5a" stroke-width="1.5" />
   <rect x="31" y="145" width="239" height="28" rx="14" fill="url(#bar-gradient)" />
-  <text x="150" y="164" font-family="Arial, sans-serif" font-size="15" font-weight="bold" fill="#000000" text-anchor="middle">Rating: 14261</text>
+  <text x="150" y="164" font-family="Arial, sans-serif" font-size="15" font-weight="bold" fill="#000000" text-anchor="middle">旧曲: 9623 + 新曲: 4363</text>
   
   <!-- 更新时间戳 -->
   <text x="1060" y="435" font-family="Arial, sans-serif" font-size="11" fill="#ffffff" opacity="0.8" text-anchor="end">
-    更新于 2026-07-21 08:24 · Lxns API
+    更新于 2026-07-21 13:44 · Lxns API
   </text>
 </svg>
